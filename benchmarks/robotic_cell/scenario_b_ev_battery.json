@@ -1,0 +1,130 @@
+{
+  "project_name": "EV Battery Module Collaborative Assembly Workcell",
+  "project_mode": "ROBOTIC_WORKCELL",
+  "target_takt_time_s": 45.0,
+  "plot": {
+    "boundary": [
+      [0.0, 0.0],
+      [14.0, 0.0],
+      [14.0, 10.0],
+      [0.0, 10.0]
+    ],
+    "no_go_zones": [],
+    "docks": [
+      {"id": "Infeed_Pallet_Conv", "point": [0.0, 5.0], "type": "receiving"},
+      {"id": "Outfeed_Module_Conv", "point": [14.0, 5.0], "type": "shipping"}
+    ],
+    "emergency_exits": [
+      {"id": "EStop_Gate_West", "point": [7.0, 0.0]}
+    ],
+    "utility_drops": [
+      {"id": "Power_Panel_415V", "point": [0.0, 8.5], "utility": "power_3ph"},
+      {"id": "Laser_Chiller_Drop", "point": [14.0, 8.5], "utility": "chiller"}
+    ],
+    "min_aisle_width_m": 2.5
+  },
+  "entities": [
+    {
+      "id": "Robot_Stacking",
+      "model": "ABB_IRB_2600_20_165",
+      "category": "robot_6axis",
+      "dimensions": {"L": 0.65, "W": 0.65, "H": 1.65},
+      "clearances": {"front": 0.0, "back": 0.0, "left": 0.0, "right": 0.0},
+      "kinematics": {
+        "r_min_m": 0.35,
+        "r_max_m": 1.65,
+        "axis1_deg_s": 175.0,
+        "stop_time_s": 0.25,
+        "reaction_time_s": 0.08,
+        "max_payload_kg": 20.0
+      },
+      "safety_mode": "SSM",
+      "x": 4.5, "y": 5.0, "theta": 0.0,
+      "relocation_cost_inr": 180000.0
+    },
+    {
+      "id": "Cobot_BMS_Fastener",
+      "model": "UR10e",
+      "category": "robot_6axis",
+      "dimensions": {"L": 0.35, "W": 0.35, "H": 1.30},
+      "clearances": {"front": 0.0, "back": 0.0, "left": 0.0, "right": 0.0},
+      "kinematics": {
+        "r_min_m": 0.20,
+        "r_max_m": 1.30,
+        "axis1_deg_s": 120.0,
+        "stop_time_s": 0.20,
+        "reaction_time_s": 0.05,
+        "max_payload_kg": 12.5
+      },
+      "safety_mode": "PFL",
+      "x": 9.5, "y": 5.0, "theta": 0.0,
+      "relocation_cost_inr": 90000.0
+    },
+    {
+      "id": "Cell_Feeder_OCV",
+      "model": "Cell_Feeder_OCV",
+      "category": "feeder",
+      "dimensions": {"L": 1.50, "W": 1.00, "H": 1.20},
+      "clearances": {"front": 0.60, "back": 0.40, "left": 0.40, "right": 0.40},
+      "x": 2.5, "y": 5.0, "theta": 0.0,
+      "relocation_cost_inr": 120000.0
+    },
+    {
+      "id": "Module_Stack_Fixture",
+      "model": "Stack_Jig_Fixture",
+      "category": "fixture",
+      "dimensions": {"L": 1.20, "W": 0.90, "H": 1.00},
+      "clearances": {"front": 0.50, "back": 0.40, "left": 0.40, "right": 0.40},
+      "x": 6.5, "y": 5.0, "theta": 0.0,
+      "relocation_cost_inr": 80000.0
+    },
+    {
+      "id": "Laser_Busbar_Welder",
+      "model": "Busbar_Laser_Welder",
+      "category": "welder",
+      "dimensions": {"L": 2.20, "W": 1.80, "H": 2.20},
+      "clearances": {"front": 0.80, "back": 0.60, "left": 0.60, "right": 0.60},
+      "hazard_tags": ["laser_class4"],
+      "x": 6.5, "y": 8.0, "theta": 0.0,
+      "relocation_cost_inr": 450000.0
+    },
+    {
+      "id": "Human_BMS_Kitting",
+      "model": "Human_BMS_Wiring_Station",
+      "category": "human_station",
+      "dimensions": {"L": 1.40, "W": 0.90, "H": 1.10},
+      "clearances": {"front": 1.00, "back": 0.40, "left": 0.40, "right": 0.40},
+      "approach_speed_m_s": 1.6,
+      "x": 9.5, "y": 2.0, "theta": 0.0,
+      "relocation_cost_inr": 40000.0
+    },
+    {
+      "id": "Vision_Inspection_EOL",
+      "model": "Vision_EOL_Inspection",
+      "category": "inspection",
+      "dimensions": {"L": 1.40, "W": 0.90, "H": 1.30},
+      "clearances": {"front": 0.80, "back": 0.50, "left": 0.40, "right": 0.40},
+      "x": 12.0, "y": 5.0, "theta": 0.0,
+      "relocation_cost_inr": 90000.0
+    }
+  ],
+  "robot_tasks": [
+    {
+      "robot_id": "Robot_Stacking",
+      "sequence": [
+        {"from": "Cell_Feeder_OCV", "to": "Module_Stack_Fixture", "process_s": 4.5},
+        {"from": "Module_Stack_Fixture", "to": "Cell_Feeder_OCV", "process_s": 1.5}
+      ]
+    },
+    {
+      "robot_id": "Cobot_BMS_Fastener",
+      "sequence": [
+        {"from": "Module_Stack_Fixture", "to": "Vision_Inspection_EOL", "process_s": 6.0},
+        {"from": "Vision_Inspection_EOL", "to": "Module_Stack_Fixture", "process_s": 2.0}
+      ]
+    }
+  ],
+  "safety_rules": [
+    {"tag_a": "laser_class4", "tag_b": "human_station", "min_distance_m": 3.0}
+  ]
+}

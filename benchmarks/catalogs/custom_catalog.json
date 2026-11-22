@@ -1,0 +1,39 @@
+[
+  {
+    "model": "Kuka_KR_Cybertech",
+    "category": "robot_6axis",
+    "label": "KUKA KR CYBERTECH nano (10kg Compact)",
+    "description": "User-defined custom articulated robot configured for high-speed laser marking and cell tending.",
+    "dimensions": {"L": 0.50, "W": 0.50, "H": 1.45},
+    "clearances": {"front": 0.0, "back": 0.0, "left": 0.0, "right": 0.0},
+    "kinematics": {
+      "r_min_m": 0.30,
+      "r_max_m": 1.44,
+      "axis1_deg_s": 200.0,
+      "stop_time_s": 0.22,
+      "reaction_time_s": 0.06,
+      "max_payload_kg": 10.0
+    },
+    "safety_mode": "SSM",
+    "power_kw": 3.2,
+    "noise_lw_db": 66.0,
+    "utilities": ["power_3ph"],
+    "relocation_cost_inr": 160000.0,
+    "is_custom": true
+  },
+  {
+    "model": "Ultrasonic_Wire_Bonder",
+    "category": "battery_equipment",
+    "label": "Automated Ultrasonic Aluminum Wire Bonder",
+    "description": "Custom precision wire bonder for EV battery cell-to-busbar interconnects.",
+    "dimensions": {"L": 1.60, "W": 1.30, "H": 1.70},
+    "clearances": {"front": 1.00, "back": 0.60, "left": 0.50, "right": 0.50},
+    "power_kw": 4.5,
+    "noise_lw_db": 63.0,
+    "utilities": ["power_3ph", "compressed_air"],
+    "hazard_tags": [],
+    "sensitive_tags": ["vibration_sensitive", "dust_sensitive"],
+    "relocation_cost_inr": 220000.0,
+    "is_custom": true
+  }
+]

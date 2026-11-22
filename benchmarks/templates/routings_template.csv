@@ -1,0 +1,4 @@
+part_id,annual_demand,batch_size,sequence
+Gear_Shaft_A1,18000,50,CNC_01 -> VMC_01 -> Grinder_01 -> CMM_01
+Brake_Disc_B2,24000,80,CNC_02 -> Grinder_02 -> Deburr_01
+Motor_Housing_C3,12000,40,VMC_02 -> Deburr_01 -> CMM_01
