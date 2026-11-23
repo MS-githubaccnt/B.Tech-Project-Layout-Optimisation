@@ -34,11 +34,11 @@ export const ComplianceScorecard: React.FC<ComplianceScorecardProps> = ({ compli
             <ShieldAlert className="w-4 h-4 text-red-400" />
           )}
           <span className="font-semibold text-white uppercase text-xs tracking-wider">
-            Regulatory Compliance Audit Scorecard
+            Indian Defense Statutory Compliance Audit
           </span>
         </div>
         <div className="font-mono">
-          <span className="text-slate-400 mr-1.5">Score:</span>
+          <span className="text-slate-400 mr-1.5">Audit Score:</span>
           <span
             className={`font-bold px-2 py-0.5 rounded border ${
               compliance.overall_passed
@@ -52,11 +52,78 @@ export const ComplianceScorecard: React.FC<ComplianceScorecardProps> = ({ compli
       </div>
 
       <div className="space-y-2">
-        {/* Fire Egress */}
+        {/* 1. DGQA / DGAQA Quality & Chain-of-Custody */}
         <div className="p-2.5 bg-[#16181d] rounded border border-[#2d3239] flex items-center justify-between">
           <div>
-            <div className="font-semibold text-white">Fire Egress Walking Path</div>
-            <div className="text-[10px] text-slate-400">Indian Factories Act & NFPA 101 Statutory Limit (≤30m)</div>
+            <div className="font-semibold text-white flex items-center space-x-1.5">
+              <span>DGQA / DGAQA Quality &amp; MRB Custody</span>
+              <span className="text-[9px] px-1 py-0.2 bg-orange-950/60 border border-orange-700/50 text-orange-400 rounded font-mono">
+                AS9100D
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-400">
+              Material Review Board (MRB) locked quarantine &amp; thermal isolation (≥4.0m)
+            </div>
+          </div>
+          <div className="text-right font-mono">
+            <span className={`text-[10px] font-bold ${compliance.dgqa_custody_passed ?? true ? 'text-emerald-400' : 'text-red-400'}`}>
+              {compliance.dgqa_custody_passed ?? true ? 'PASS' : 'DEFICIENT'}
+            </span>
+          </div>
+        </div>
+
+        {/* 2. PESO & Indian Explosives Rules, 2008 */}
+        <div className="p-2.5 bg-[#16181d] rounded border border-[#2d3239] flex items-center justify-between">
+          <div>
+            <div className="font-semibold text-white flex items-center space-x-1.5">
+              <span>PESO Explosives Rules 2008 (Q-D Safety)</span>
+              <span className="text-[9px] px-1 py-0.2 bg-orange-950/60 border border-orange-700/50 text-orange-400 rounded font-mono">
+                ACT 1884
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-400">
+              Quantity-Distance D = K · W^(1/3) Outside Safety Distance to boundary and docks
+            </div>
+          </div>
+          <div className="text-right font-mono">
+            <span className={`text-[10px] font-bold ${compliance.peso_qd_passed ?? true ? 'text-emerald-400' : 'text-red-400'}`}>
+              {compliance.peso_qd_passed ?? true ? 'COMPLIANT' : 'OVERLAP'}
+            </span>
+          </div>
+        </div>
+
+        {/* 3. AERB Radiography NDT Shielding */}
+        <div className="p-2.5 bg-[#16181d] rounded border border-[#2d3239] flex items-center justify-between">
+          <div>
+            <div className="font-semibold text-white flex items-center space-x-1.5">
+              <span>AERB Code AERB/SC/IR (NDT Radiography)</span>
+              <span className="text-[9px] px-1 py-0.2 bg-orange-950/60 border border-orange-700/50 text-orange-400 rounded font-mono">
+                AERB
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-400">
+              450kV X-Ray / CT bunker radiation exclusion boundary buffer (≥5.0m)
+            </div>
+          </div>
+          <div className="text-right font-mono">
+            <span className={`text-[10px] font-bold ${compliance.aerb_radiation_passed ?? true ? 'text-emerald-400' : 'text-red-400'}`}>
+              {compliance.aerb_radiation_passed ?? true ? 'VERIFIED' : 'BREACH'}
+            </span>
+          </div>
+        </div>
+
+        {/* 4. NBC 2016 Part 4 / Factories Act 1948 Egress */}
+        <div className="p-2.5 bg-[#16181d] rounded border border-[#2d3239] flex items-center justify-between">
+          <div>
+            <div className="font-semibold text-white flex items-center space-x-1.5">
+              <span>NBC 2016 Group J / Factories Act Egress</span>
+              <span className="text-[9px] px-1 py-0.2 bg-orange-950/60 border border-orange-700/50 text-orange-400 rounded font-mono">
+                NBC 2016
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-400">
+              Hazardous &amp; Armament walking escape path (Statutory limit ≤22.5m)
+            </div>
           </div>
           <div className="text-right font-mono">
             <div className="text-sm font-bold text-white">{compliance.fire_egress_max_dist_m}m</div>
@@ -66,42 +133,43 @@ export const ComplianceScorecard: React.FC<ComplianceScorecardProps> = ({ compli
           </div>
         </div>
 
-        {/* Forklift Aisles */}
+        {/* 5. BIS IS 6922 / DIN 4150-3 Vibration Isolation */}
         <div className="p-2.5 bg-[#16181d] rounded border border-[#2d3239] flex items-center justify-between">
           <div>
-            <div className="font-semibold text-white">Forklift Navigable Aisle Width</div>
-            <div className="text-[10px] text-slate-400">Minkowski Swept Obstacle Clearance (≥3.0m)</div>
+            <div className="font-semibold text-white flex items-center space-x-1.5">
+              <span>BIS IS 6922 / DIN 4150-3 Vibration Isolation</span>
+              <span className="text-[9px] px-1 py-0.2 bg-orange-950/60 border border-orange-700/50 text-orange-400 rounded font-mono">
+                IS 6922
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-400">
+              Shockwave foundation isolation (≥7.0m) between forge hammers and sub-micron CMM
+            </div>
+          </div>
+          <div className="text-right font-mono">
+            <span className={`text-[10px] font-bold ${compliance.is6922_vibration_isolation_passed ?? true ? 'text-emerald-400' : 'text-red-400'}`}>
+              {compliance.is6922_vibration_isolation_passed ?? true ? 'ISOLATED' : 'INTERFERENCE'}
+            </span>
+          </div>
+        </div>
+
+        {/* 6. Heavy Armament Navigable Aisles */}
+        <div className="p-2.5 bg-[#16181d] rounded border border-[#2d3239] flex items-center justify-between">
+          <div>
+            <div className="font-semibold text-white flex items-center space-x-1.5">
+              <span>Heavy Armament Navigable Aisle Width</span>
+              <span className="text-[9px] px-1 py-0.2 bg-orange-950/60 border border-orange-700/50 text-orange-400 rounded font-mono">
+                CAD
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-400">
+              Minkowski swept obstacle clearance for ordnance transit (≥3.0m)
+            </div>
           </div>
           <div className="text-right font-mono">
             <div className="text-sm font-bold text-white">{compliance.forklift_aisle_min_width_m}m</div>
             <span className={`text-[10px] font-bold ${compliance.forklift_aisle_passed ? 'text-emerald-400' : 'text-red-400'}`}>
               {compliance.forklift_aisle_passed ? 'PASS' : 'FAIL'}
-            </span>
-          </div>
-        </div>
-
-        {/* ISO 10218-2 Collaborative Safety */}
-        <div className="p-2.5 bg-[#16181d] rounded border border-[#2d3239] flex items-center justify-between">
-          <div>
-            <div className="font-semibold text-white">ISO 10218-2:2025 Safety Standards</div>
-            <div className="text-[10px] text-slate-400">SSM Annex L Protective Distance & ISO 13854 Anti-Crushing (≥500mm)</div>
-          </div>
-          <div className="text-right font-mono">
-            <span className={`text-[11px] font-bold ${compliance.iso_safety_passed ? 'text-emerald-400' : 'text-red-400'}`}>
-              {compliance.iso_safety_passed ? 'VERIFIED' : 'DEFICIENT'}
-            </span>
-          </div>
-        </div>
-
-        {/* Hazard Separation */}
-        <div className="p-2.5 bg-[#16181d] rounded border border-[#2d3239] flex items-center justify-between">
-          <div>
-            <div className="font-semibold text-white">Hazard Buffer Separation</div>
-            <div className="text-[10px] text-slate-400">Vibration / Dust vs Metrology (CMM) Environmental Isolation</div>
-          </div>
-          <div className="text-right font-mono">
-            <span className={`text-[11px] font-bold ${compliance.hazard_separation_passed ? 'text-emerald-400' : 'text-red-400'}`}>
-              {compliance.hazard_separation_passed ? 'COMPLIANT' : 'VIOLATION'}
             </span>
           </div>
         </div>

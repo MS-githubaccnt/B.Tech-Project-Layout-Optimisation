@@ -69,6 +69,12 @@ class LayoutEntity(BaseModel):
     safety_mode: Optional[str] = Field(default=None, description="SSM, PFL, ENCLOSED, NONE")
     approach_speed_m_s: float = Field(default=1.6, ge=0, description="Human approach speed per ISO 13855 (m/s)")
 
+    # Defense & Statutory Specifics (DGQA, PESO, AERB, IS 6922)
+    net_explosive_weight_kg: float = Field(default=0.0, ge=0, description="Net Explosive Quantity (NEQ/NEW) in kg TNT equivalent")
+    is_mrb_bonded: bool = Field(default=False, description="AS9100D / DGQA locked quarantine cage / bonded store")
+    is_aerb_radiological: bool = Field(default=False, description="AERB industrial radiography NDT bunker")
+    vibration_class: Optional[str] = Field(default=None, description="HEAVY_FORGE, SUB_MICRON_CMM, 5AXIS_MILL")
+
     # Placement state
     x: float = Field(default=0.0, description="Centroid X in meters")
     y: float = Field(default=0.0, description="Centroid Y in meters")
@@ -190,6 +196,14 @@ class ComplianceResult(BaseModel):
     forklift_aisle_min_width_m: float = 0.0
     iso_safety_passed: bool = True
     hazard_separation_passed: bool = True
+    
+    # Indian Defense & Statutory Audit Results (DGQA, PESO, AERB, NBC 2016, IS 6922)
+    dgqa_custody_passed: bool = True
+    peso_qd_passed: bool = True
+    aerb_radiation_passed: bool = True
+    nbc_group_j_egress_passed: bool = True
+    is6922_vibration_isolation_passed: bool = True
+
     violations: List[str] = Field(default_factory=list)
     details: List[ComplianceCheckDetail] = Field(default_factory=list)
 

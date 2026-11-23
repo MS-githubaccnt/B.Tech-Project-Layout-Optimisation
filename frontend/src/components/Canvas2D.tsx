@@ -16,6 +16,7 @@ interface Canvas2DProps {
   showFlows: boolean;
   showUtilities: boolean;
   showNoiseHeatmap: boolean;
+  showCells?: boolean;
 }
 
 export const Canvas2D: React.FC<Canvas2DProps> = ({
@@ -31,7 +32,8 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
   showSafetySSM,
   showFlows,
   showUtilities,
-  showNoiseHeatmap
+  showNoiseHeatmap,
+  showCells = true
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -422,6 +424,125 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
       }
     });
 
+    // 10.5. Stage 1: Cellular Manufacturing Zones & Boundary Hulls
+    if (showCells) {
+      const cellsMap = new Map<number, LayoutEntity[]>();
+      entities.forEach(ent => {
+        if (ent.cell_id !== undefined && ent.cell_id !== null && ent.cell_id > 0) {
+          if (!cellsMap.has(ent.cell_id)) {
+            cellsMap.set(ent.cell_id, []);
+          }
+          cellsMap.get(ent.cell_id)!.push(ent);
+        }
+      });
+
+      const cellPalette = [
+        { stroke: '#10b981', fill: 'rgba(16, 185, 129, 0.08)', border: 'rgba(16, 185, 129, 0.40)', badgeBg: '#064e3b', text: '#6ee7b7', tag: 'CELL 1 [MACHINING & TURNING]' },
+        { stroke: '#0ea5e9', fill: 'rgba(14, 165, 233, 0.08)', border: 'rgba(14, 165, 233, 0.40)', badgeBg: '#0c4a6e', text: '#7dd3fc', tag: 'CELL 2 [FORGING & FINISHING]' },
+        { stroke: '#f59e0b', fill: 'rgba(245, 158, 11, 0.08)', border: 'rgba(245, 158, 11, 0.40)', badgeBg: '#78350f', text: '#fcd34d', tag: 'CELL 3 [NDT & METROLOGY]' },
+        { stroke: '#a855f7', fill: 'rgba(168, 85, 247, 0.08)', border: 'rgba(168, 85, 247, 0.40)', badgeBg: '#581c87', text: '#d8b4fe', tag: 'CELL 4 [SUB-ASSEMBLY]' },
+        { stroke: '#f43f5e', fill: 'rgba(244, 63, 94, 0.08)', border: 'rgba(244, 63, 94, 0.40)', badgeBg: '#881337', text: '#fda4af', tag: 'CELL 5 [PACKAGING]' },
+      ];
+
+      cellsMap.forEach((cEnts, cId) => {
+        if (cEnts.length === 0) return;
+        const theme = cellPalette[(cId - 1) % cellPalette.length];
+
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        cEnts.forEach(e => {
+          const halfL = e.dimensions.L / 2 + (e.clearances?.left || 0.6);
+          const halfR = e.dimensions.L / 2 + (e.clearances?.right || 0.6);
+          const halfF = e.dimensions.W / 2 + (e.clearances?.front || 0.8);
+          const halfB = e.dimensions.W / 2 + (e.clearances?.back || 0.6);
+          minX = Math.min(minX, e.x - halfL);
+          maxX = Math.max(maxX, e.x + halfR);
+          minY = Math.min(minY, e.y - halfB);
+          maxY = Math.max(maxY, e.y + halfF);
+        });
+
+        const padM = 0.8;
+        minX -= padM;
+        maxX += padM;
+        minY -= padM;
+        maxY += padM;
+
+        const pTL = worldToScreen(minX, maxY);
+        const pBR = worldToScreen(maxX, minY);
+        const boxW = Math.max(30, pBR.x - pTL.x);
+        const boxH = Math.max(30, pBR.y - pTL.y);
+
+        ctx.fillStyle = theme.fill;
+        ctx.strokeStyle = theme.border;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([8, 6]);
+
+        const rad = 8;
+        ctx.beginPath();
+        ctx.moveTo(pTL.x + rad, pTL.y);
+        ctx.lineTo(pTL.x + boxW - rad, pTL.y);
+        ctx.quadraticCurveTo(pTL.x + boxW, pTL.y, pTL.x + boxW, pTL.y + rad);
+        ctx.lineTo(pTL.x + boxW, pTL.y + boxH - rad);
+        ctx.quadraticCurveTo(pTL.x + boxW, pTL.y + boxH, pTL.x + boxW - rad, pTL.y + boxH);
+        ctx.lineTo(pTL.x + rad, pTL.y + boxH);
+        ctx.quadraticCurveTo(pTL.x, pTL.y + boxH, pTL.x, pTL.y + boxH - rad);
+        ctx.lineTo(pTL.x, pTL.y + rad);
+        ctx.quadraticCurveTo(pTL.x, pTL.y, pTL.x + rad, pTL.y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Technical CAD corner brackets
+        const bLen = 14;
+        ctx.strokeStyle = theme.stroke;
+        ctx.lineWidth = 2.0;
+
+        ctx.beginPath();
+        ctx.moveTo(pTL.x, pTL.y + bLen);
+        ctx.lineTo(pTL.x, pTL.y);
+        ctx.lineTo(pTL.x + bLen, pTL.y);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(pTL.x + boxW - bLen, pTL.y);
+        ctx.lineTo(pTL.x + boxW, pTL.y);
+        ctx.lineTo(pTL.x + boxW, pTL.y + bLen);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(pTL.x + boxW, pTL.y + boxH - bLen);
+        ctx.lineTo(pTL.x + boxW, pTL.y + boxH);
+        ctx.lineTo(pTL.x + boxW - bLen, pTL.y + boxH);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(pTL.x + bLen, pTL.y + boxH);
+        ctx.lineTo(pTL.x, pTL.y + boxH);
+        ctx.lineTo(pTL.x, pTL.y + boxH - bLen);
+        ctx.stroke();
+
+        // Cellular Banner Badge
+        const bannerText = theme.tag.replace(/CELL \d+/, `CELL ${cId}`) + ` • ${cEnts.length} UNITS`;
+        ctx.font = 'bold 9px JetBrains Mono, monospace';
+        const txtMetrics = ctx.measureText(bannerText);
+        const bW = txtMetrics.width + 16;
+        const bH = 18;
+
+        ctx.fillStyle = theme.badgeBg;
+        ctx.beginPath();
+        ctx.rect(pTL.x + 8, pTL.y - 12, bW, bH);
+        ctx.fill();
+        ctx.strokeStyle = theme.stroke;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.fillStyle = theme.text;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(bannerText, pTL.x + 16, pTL.y - 3);
+      });
+    }
+
     // 11. Draw Equipment (Clearances & Base Footprints)
     entities.forEach(entity => {
       const isSelected = entity.id === selectedEntityId;
@@ -486,6 +607,11 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
         borderColor = '#06b6d4';
       }
 
+      if (entity.cell_id && !isSelected && !isOverlapping) {
+        const cellBorders = ['#10b981', '#0ea5e9', '#f59e0b', '#a855f7', '#f43f5e'];
+        borderColor = cellBorders[(entity.cell_id - 1) % cellBorders.length];
+      }
+
       ctx.fillStyle = fillColor;
       ctx.fill();
 
@@ -517,6 +643,16 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
         ctx.fillText(entity.model, 0, 8);
       }
 
+      // Cell Tag Badge on Machine Footprint (e.g. C1, C2, C3)
+      if (entity.cell_id) {
+        const cellColors = ['#10b981', '#0ea5e9', '#f59e0b', '#a855f7', '#f43f5e'];
+        const badgeColor = cellColors[(entity.cell_id - 1) % cellColors.length];
+        ctx.fillStyle = badgeColor;
+        ctx.font = 'bold 8px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`[C${entity.cell_id}]`, 0, -halfW + 10);
+      }
+
       // Pinned status dot
       if (entity.is_pinned) {
         ctx.fillStyle = '#f59e0b';
@@ -530,7 +666,7 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
 
   }, [
     scale, pan, entities, config, selectedEntityId, overlappingEntityIds,
-    noiseFieldData, showClearances, showReachZones, showSafetySSM, showFlows, showUtilities, showNoiseHeatmap
+    noiseFieldData, showClearances, showReachZones, showSafetySSM, showFlows, showUtilities, showNoiseHeatmap, showCells
   ]);
 
   // Pointer event handlers for drag and pan

@@ -508,11 +508,11 @@ export const AddAssetModal: React.FC<AddAssetModalProps> = ({
                   {[
                     { id: 'all', label: 'All Equipment' },
                     { id: 'cnc', label: 'CNC Machining & Turning' },
-                    { id: 'robotics', label: 'Robotics & Cobots' },
-                    { id: 'ev_battery', label: 'EV Battery Automation' },
+                    { id: 'defense_special', label: 'Defense & Armament Processes' },
                     { id: 'grinding', label: 'Grinding & Finishing' },
-                    { id: 'forming', label: 'Forming & Fabrication' },
-                    { id: 'metrology', label: 'Metrology & Quality' },
+                    { id: 'forming', label: 'Forming & Forging' },
+                    { id: 'metrology', label: 'Metrology & AS9100D Quality' },
+                    { id: 'robotics', label: 'Material Handling Automation' },
                     { id: 'logistics', label: 'Logistics & Buffers' },
                     { id: 'human', label: 'Human Workstations' },
                     { id: 'custom', label: 'User Custom' }
@@ -727,7 +727,9 @@ export const AddAssetModal: React.FC<AddAssetModalProps> = ({
                         <option value="robot_6axis">Articulated 6-Axis Robot</option>
                         <option value="cobot">Collaborative Robot (Cobot)</option>
                         <option value="robot_scara">SCARA Assembly Robot</option>
-                        <option value="battery_equipment">EV Battery Automation Station</option>
+                        <option value="gun_drill">Deep-Hole Gun Drill / Rifling</option>
+                        <option value="heat_treat">Vacuum Heat Treatment Furnace</option>
+                        <option value="defense_special">Defense Special Process / NDT Bunker</option>
                         <option value="feeder">Parts Feeder / Tray Unloader</option>
                         <option value="welder">Laser / Resistance Welder</option>
                         <option value="logistics">AMR Dock / Conveyor</option>

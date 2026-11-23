@@ -484,3 +484,34 @@ def run_hybrid_ga(
         cell_boundaries=boundaries,
         duplicated_machines=duplicated
     )
+
+
+def extract_incidence_matrix_from_config(
+    entities: List[Any],
+    part_routings: List[Any]
+) -> Tuple[np.ndarray, List[str], List[str], np.ndarray]:
+    """
+    Constructs the M x P binary incidence matrix from active machine footprints and part routings.
+    """
+    machine_names = [getattr(e, 'id', str(e)) for e in entities]
+    part_names = [getattr(p, 'part_id', str(p)) for p in part_routings]
+    if not machine_names or not part_names:
+        return np.zeros((max(1, len(machine_names)), max(1, len(part_names))), dtype=int), machine_names, part_names, np.array([1.0])
+
+    M = len(machine_names)
+    P = len(part_names)
+    mat = np.zeros((M, P), dtype=int)
+    demands = np.array([max(1.0, float(getattr(p, 'annual_demand', 1000))) for p in part_routings], dtype=float)
+
+    for p_idx, routing in enumerate(part_routings):
+        seq = getattr(routing, 'sequence', [])
+        for op in seq:
+            m_type = getattr(op, 'machine_type', str(op))
+            for m_idx, e in enumerate(entities):
+                e_id = getattr(e, 'id', '')
+                e_model = getattr(e, 'model', '') or ''
+                e_cat = getattr(e, 'category', '') or ''
+                if e_id == m_type or e_model == m_type or e_cat == m_type:
+                    mat[m_idx, p_idx] = 1
+
+    return mat, machine_names, part_names, demands

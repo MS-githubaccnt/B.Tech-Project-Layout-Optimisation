@@ -99,11 +99,11 @@ def generate_executive_pdf_report(
     story = []
 
     # 1. Header Block
-    story.append(Paragraph("AI-Driven Intelligent Facility Layout Platform", title_style))
+    story.append(Paragraph("OPTILAYOUT DEFENSE | Armament & Aerospace Facility Planner", title_style))
     story.append(Spacer(1, 4))
-    mode_str = "Mode A: Cellular Manufacturing System (CMS)" if config.project_mode == ProjectMode.CELLULAR_CMS else "Mode B: Collaborative Robotic & EV Battery Workcell"
+    mode_str = "Defense Precision Machining & Armament Production (AS9100D Compliant)" if config.project_mode == ProjectMode.CELLULAR_CMS else "Defense Munitions & Armament Facility"
     date_str = time.strftime("%B %d, %Y - %H:%M:%S")
-    story.append(Paragraph(f"<b>Technical Audit & Engineering Verification Report</b> | {mode_str}<br/>Generated: {date_str} | Candidate ID: <b>{solution.candidate_id}</b>", subtitle_style))
+    story.append(Paragraph(f"<b>Indian Defense Statutory Audit & Technical Verification Certificate</b><br/>DGQA / DGAQA / PESO / AERB Standards | Generated: {date_str} | Candidate ID: <b>{solution.candidate_id}</b>", subtitle_style))
     story.append(Spacer(1, 8))
     story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#cbd5e1"), spaceAfter=10))
 
@@ -141,7 +141,7 @@ def generate_executive_pdf_report(
     story.append(Spacer(1, 12))
 
     # 3. Regulatory Compliance Scorecard Section
-    story.append(Paragraph("1. Regulatory & Safety Compliance Scorecard", section_heading))
+    story.append(Paragraph("1. Indian Defense Statutory & Quality Compliance Scorecard (DGQA / PESO / AERB / NBC)", section_heading))
     if solution.compliance and solution.compliance.details:
         comp_rows = [["Compliance Standard", "Status", "Measured Value", "Threshold", "Audit Finding"]]
         for d in solution.compliance.details:

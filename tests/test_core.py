@@ -248,7 +248,73 @@ def test_compliance_audit(sample_config):
     )
     assert isinstance(res.overall_passed, bool)
     assert res.overall_score >= 0.0
-    assert len(res.details) >= 3
+    assert len(res.details) >= 7
+    assert hasattr(res, 'dgqa_custody_passed')
+    assert hasattr(res, 'peso_qd_passed')
+    assert hasattr(res, 'aerb_radiation_passed')
+    assert hasattr(res, 'nbc_group_j_egress_passed')
+    assert hasattr(res, 'is6922_vibration_isolation_passed')
+
+
+def test_indian_defense_compliance_audits(sample_config):
+    from backend.core.compliance import (
+        evaluate_peso_explosives_qd,
+        evaluate_dgqa_mrb_custody,
+        evaluate_aerb_radiation_shielding,
+        evaluate_is6922_vibration_isolation
+    )
+    from shapely.geometry import Polygon
+
+    # 1. DGQA MRB Custody Check
+    mrb_entity = LayoutEntity(
+        id="MRB_01", category="storage", model="MRB_Quarantine_Cage",
+        dimensions=Dimensions(L=3.0, W=2.0, H=2.4), x=10.0, y=10.0, is_mrb_bonded=True
+    )
+    passed_mrb, details_mrb = evaluate_dgqa_mrb_custody([mrb_entity])
+    assert passed_mrb is True
+
+    # 2. PESO Q-D Explosive Separation
+    large_ordnance_plot = Polygon([[0, 0], [250, 0], [250, 250], [0, 250]])
+    warhead_bay = LayoutEntity(
+        id="Warhead_Bay", category="machine", dimensions=Dimensions(L=2.0, W=2.0, H=2.0),
+        x=125.0, y=125.0, net_explosive_weight_kg=25.0
+    )
+    # Required D = 30 * (25)^(1/3) = ~87.7m. Distance to boundary is 125m > 87.7m -> PASS
+    passed_peso, details_peso = evaluate_peso_explosives_qd(large_ordnance_plot, [warhead_bay], [])
+    assert passed_peso is True
+
+    # In a compact plot (40x30m), warhead at (20, 15) has 15m to boundary < 87.7m -> FAIL
+    small_poly = Polygon([[0, 0], [40, 0], [40, 30], [0, 30]])
+    compact_warhead = LayoutEntity(
+        id="Warhead_Compact", category="machine", dimensions=Dimensions(L=2.0, W=2.0, H=2.0),
+        x=20.0, y=15.0, net_explosive_weight_kg=25.0
+    )
+    failed_peso, _ = evaluate_peso_explosives_qd(small_poly, [compact_warhead], [])
+    assert failed_peso is False
+
+    # 3. AERB Radiography NDT Bunker Exclusion
+    ndt_bunker = LayoutEntity(
+        id="NDT_01", category="inspection", model="Waygate_NDT_Bunker",
+        dimensions=Dimensions(L=3.8, W=3.2, H=2.8), x=5.0, y=5.0, is_aerb_radiological=True
+    )
+    operator_st = LayoutEntity(
+        id="Op_01", category="human_station", dimensions=Dimensions(L=1.0, W=1.0, H=1.0),
+        x=7.0, y=5.0  # within 5m
+    )
+    aerb_fail, _ = evaluate_aerb_radiation_shielding([ndt_bunker, operator_st])
+    assert aerb_fail is False
+
+    # 4. IS 6922 Vibration Isolation (Forge vs CMM)
+    hammer = LayoutEntity(
+        id="Hammer_01", category="forming", dimensions=Dimensions(L=4.0, W=4.0, H=4.0),
+        x=5.0, y=5.0, vibration_class="HEAVY_FORGE", noise_lw_db=96.0
+    )
+    cmm = LayoutEntity(
+        id="CMM_01", category="cmm", dimensions=Dimensions(L=2.0, W=2.0, H=2.0),
+        x=8.0, y=5.0, vibration_class="SUB_MICRON_CMM"  # 3m < 7m
+    )
+    vib_fail, _ = evaluate_is6922_vibration_isolation([hammer, cmm])
+    assert vib_fail is False
 
 
 def test_simulations(sample_config):

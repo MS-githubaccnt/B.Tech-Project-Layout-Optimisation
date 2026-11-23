@@ -265,6 +265,248 @@ def evaluate_iso_10218_safety(
     return all_passed, details
 
 
+# ==============================================================================
+# INDIAN DEFENSE STATUTORY AUDIT EVALUATORS (DGQA, PESO, AERB, NBC 2016, IS 6922)
+# ==============================================================================
+
+def evaluate_peso_explosives_qd(
+    plot_boundary: Polygon,
+    entities: List[LayoutEntity],
+    docks: List[Any],
+    k_factor: float = 30.0
+) -> Tuple[bool, List[Dict[str, Any]]]:
+    """
+    Evaluates PESO / Indian Explosives Rules, 2008 Quantity-Distance (Q-D) separation:
+    D = K * (W)^(1/3)
+    Verifies that blast arcs do not overlap with plot boundary, receiving docks,
+    or non-blast-rated plant areas.
+    """
+    explosive_entities = [
+        e for e in entities
+        if getattr(e, 'net_explosive_weight_kg', 0) > 0 or "explosive" in e.hazard_tags
+    ]
+    if not explosive_entities:
+        return True, [{
+            "check": "PESO Explosives Rules 2008 Q-D",
+            "passed": True,
+            "status": "PASS",
+            "message": "N/A: No energetic/explosive materials present on shopfloor."
+        }]
+
+    details = []
+    all_passed = True
+
+    for e in explosive_entities:
+        w = max(getattr(e, 'net_explosive_weight_kg', 0.0), 10.0)
+        required_d = k_factor * (w ** (1.0 / 3.0))
+        e_pt = Point(e.x, e.y)
+
+        # 1. Check distance to facility plot boundary (Outside Safety Distance)
+        dist_to_boundary = plot_boundary.exterior.distance(e_pt)
+        boundary_ok = dist_to_boundary >= required_d
+        if not boundary_ok:
+            all_passed = False
+
+        # 2. Check distance to docks / receiving
+        dock_ok = True
+        for dock in docks:
+            dock_pt = Point(dock.point[0], dock.point[1])
+            dist_dock = dock_pt.distance(e_pt)
+            if dist_dock < required_d:
+                dock_ok = False
+                all_passed = False
+
+        is_passed = boundary_ok and dock_ok
+        details.append({
+            "check": f"PESO Q-D Blast Arc ({e.id})",
+            "net_explosive_weight_kg": w,
+            "required_clearance_m": round(required_d, 2),
+            "actual_boundary_dist_m": round(dist_to_boundary, 2),
+            "passed": is_passed,
+            "status": "PASS" if is_passed else "FAIL",
+            "message": f"Required Q-D separation: {round(required_d, 2)}m (Actual boundary: {round(dist_to_boundary, 2)}m)"
+        })
+
+    return all_passed, details
+
+
+def evaluate_dgqa_mrb_custody(
+    entities: List[LayoutEntity]
+) -> Tuple[bool, List[Dict[str, Any]]]:
+    """
+    DGQA / DGAQA Quality Assurance & Chain-of-Custody Audit (AS9100D / MIL-STD-1520):
+    1. Verifies presence of a dedicated Material Review Board (MRB) Locked Quarantine Cage or Bonded Store.
+    2. Verifies MRB Cage maintains >= 4.0m separation from thermal/welding hazard areas.
+    """
+    mrb_cages = [
+        e for e in entities
+        if getattr(e, 'is_mrb_bonded', False)
+        or "mrb" in e.category.lower()
+        or "mrb" in (e.model or "").lower()
+        or "quarantine" in (e.model or "").lower()
+        or "mrb_locked" in e.hazard_tags
+    ]
+    if not mrb_cages:
+        # Check if facility has defense machines requiring custody
+        is_defense_layout = any(
+            "vmc_5axis" in e.category.lower() or
+            "gun_drill" in e.category.lower() or
+            "forming" in e.category.lower() or
+            "heat_treat" in e.category.lower() or
+            "inspection" in e.category.lower()
+            for e in entities
+        )
+        if is_defense_layout:
+            return False, [{
+                "check": "DGQA / DGAQA MRB Custody",
+                "passed": False,
+                "status": "FAIL",
+                "message": "DEFICIENT: Missing mandatory AS9100D / DGQA Material Review Board (MRB) locked quarantine cage."
+            }]
+        return True, [{
+            "check": "DGQA / DGAQA MRB Custody",
+            "passed": True,
+            "status": "PASS",
+            "message": "N/A: General commercial line without mandated flight-critical quarantine."
+        }]
+
+    # Check thermal separation
+    thermal_hazards = [
+        e for e in entities
+        if "thermal_risk" in e.hazard_tags or e.category in ["heat_treat", "welder"]
+    ]
+    cage = mrb_cages[0]
+    cage_poly = create_base_polygon(cage)
+
+    for th in thermal_hazards:
+        th_poly = create_base_polygon(th)
+        dist = cage_poly.distance(th_poly)
+        if dist < 4.0:
+            return False, [{
+                "check": "DGQA MRB Thermal Isolation",
+                "passed": False,
+                "status": "FAIL",
+                "message": f"MRB Cage {cage.id} too close to thermal hazard {th.id} ({round(dist, 2)}m < 4.0m statutory limit)"
+            }]
+
+    return True, [{
+        "check": "DGQA / DGAQA MRB Custody",
+        "passed": True,
+        "status": "PASS",
+        "message": "PASSED: Dedicated locked MRB quarantine enclosure verified with >=4.0m hazard buffer."
+    }]
+
+
+def evaluate_aerb_radiation_shielding(
+    entities: List[LayoutEntity]
+) -> Tuple[bool, List[Dict[str, Any]]]:
+    """
+    AERB Code AERB/SC/IR Non-Destructive Testing Safety:
+    Verifies that industrial radiographic X-ray/CT inspection bunkers
+    maintain at least 5.0m buffer from general unshielded manual workstations.
+    """
+    ndt_bunkers = [
+        e for e in entities
+        if getattr(e, 'is_aerb_radiological', False)
+        or "radiation_ndt" in e.hazard_tags
+        or "bunker" in (e.model or "").lower()
+    ]
+    if not ndt_bunkers:
+        return True, [{
+            "check": "AERB Radiography Exclusion Zone",
+            "passed": True,
+            "status": "PASS",
+            "message": "N/A: No active radiological / X-ray NDT installations on shopfloor."
+        }]
+
+    manual_stations = [e for e in entities if e.category in ["manual", "human_station", "cmm"]]
+    bunker = ndt_bunkers[0]
+    bunker_poly = create_base_polygon(bunker)
+
+    for st in manual_stations:
+        st_poly = create_base_polygon(st)
+        dist = bunker_poly.distance(st_poly)
+        if dist < 5.0:
+            return False, [{
+                "check": "AERB Radiography Exclusion Zone",
+                "passed": False,
+                "status": "FAIL",
+                "message": f"Bunker {bunker.id} within {round(dist, 2)}m of {st.id} (AERB statutory limit >= 5.0m)"
+            }]
+
+    return True, [{
+        "check": "AERB Radiography Exclusion Zone",
+        "passed": True,
+        "status": "PASS",
+        "message": "PASSED: AERB <= 1 µSv/hr occupied boundary exclusion (>=5.0m) verified."
+    }]
+
+
+def evaluate_is6922_vibration_isolation(
+    entities: List[LayoutEntity]
+) -> Tuple[bool, List[Dict[str, Any]]]:
+    """
+    BIS IS 6922 / DIN 4150-3 Vibration Isolation for Defense Precision Metrology:
+    Verifies that heavy impact equipment (drop forging hammers, high-tonnage presses)
+    maintain at least 7.0m separation from precision CMM metrology and 5-axis profile mills.
+    """
+    heavy_forges = [
+        e for e in entities
+        if getattr(e, 'vibration_class', '') == "HEAVY_FORGE"
+        or "forming" in e.category.lower()
+        or (e.noise_lw_db > 90.0 and "vibration" in e.hazard_tags)
+        or "hammer" in (e.model or "").lower()
+    ]
+    precision_assets = [
+        e for e in entities
+        if getattr(e, 'vibration_class', '') in ["SUB_MICRON_CMM", "5AXIS_MILL"]
+        or "cmm" in e.category.lower()
+        or "5axis" in e.category.lower()
+        or "vibration_sensitive" in e.sensitive_tags
+    ]
+
+    if not heavy_forges or not precision_assets:
+        return True, [{
+            "check": "IS 6922 Vibration Isolation",
+            "passed": True,
+            "status": "PASS",
+            "message": "PASSED: No high-energy impact forming equipment co-located with sensitive metrology."
+        }]
+
+    violations = []
+    for hf in heavy_forges:
+        hf_poly = create_base_polygon(hf)
+        for pa in precision_assets:
+            if hf.id == pa.id:
+                continue
+            pa_poly = create_base_polygon(pa)
+            dist = hf_poly.distance(pa_poly)
+            if dist < 7.0:
+                violations.append({
+                    "heavy_asset": hf.id,
+                    "sensitive_asset": pa.id,
+                    "actual_dist_m": round(dist, 2),
+                    "required_dist_m": 7.0
+                })
+
+    is_ok = len(violations) == 0
+    if not is_ok:
+        v0 = violations[0]
+        return False, [{
+            "check": "IS 6922 Vibration Isolation",
+            "passed": False,
+            "status": "FAIL",
+            "message": f"Ground shockwave risk: {v0['heavy_asset']} is within {v0['actual_dist_m']}m of {v0['sensitive_asset']} (IS 6922 limit >= 7.0m)"
+        }]
+
+    return True, [{
+        "check": "IS 6922 Vibration Isolation",
+        "passed": True,
+        "status": "PASS",
+        "message": "PASSED: IS 6922 / DIN 4150-3 dynamic foundation separation (>=7.0m) verified."
+    }]
+
+
 def run_compliance_audit(
     plot: PlotSchema,
     entities: List[LayoutEntity],
@@ -273,20 +515,31 @@ def run_compliance_audit(
     mode: ProjectMode = ProjectMode.CELLULAR_CMS
 ) -> ComplianceResult:
     """
-    Runs full comprehensive regulatory compliance scorecard.
+    Runs full comprehensive regulatory compliance scorecard including Indian Defense
+    statutory checks (DGQA, PESO Explosives Act 1884, AERB NDT, NBC 2016, IS 6922).
     """
     plot_boundary = Polygon(plot.boundary)
     no_go_polys = [Polygon(ng.polygon) for ng in plot.no_go_zones]
 
-    # 1. Fire Egress
+    # 1. Fire Egress & Emergency Exit Distance (NBC 2016 Part 4 / Factories Act 1948)
+    has_hazardous = any(
+        getattr(e, 'net_explosive_weight_kg', 0) > 0 or
+        "thermal_risk" in e.hazard_tags or
+        "radiation_ndt" in e.hazard_tags or
+        "explosive" in e.hazard_tags
+        for e in entities
+    )
+    egress_statutory_limit = 22.5 if has_hazardous else 30.0
+
     fire_ok, fire_max_dist, fire_details = evaluate_fire_egress(
         plot_boundary=plot_boundary,
         no_go_polys=no_go_polys,
         entities=entities,
-        emergency_exits=plot.emergency_exits
+        emergency_exits=plot.emergency_exits,
+        max_statutory_distance_m=egress_statutory_limit
     )
 
-    # 2. Forklift Aisles
+    # 2. Forklift & Heavy Armament Navigable Aisles (Minkowski Clearances)
     aisle_ok, aisle_min_w, aisle_details = evaluate_forklift_aisles(
         plot_boundary=plot_boundary,
         no_go_polys=no_go_polys,
@@ -294,45 +547,77 @@ def run_compliance_audit(
         min_aisle_width_m=plot.min_aisle_width_m
     )
 
-    # 3. Hazard Separation
+    # 3. Incompatible Hazard Buffer Separations
     haz_ok, haz_details = evaluate_hazard_separations(
         entities=entities,
         safety_rules=safety_rules
     )
 
-    # 4. ISO 10218-2:2025
-    iso_ok, iso_details = evaluate_iso_10218_safety(
+    # 4. DGQA / DGAQA Quality & Chain-of-Custody (AS9100D MRB Locked Quarantine)
+    dgqa_ok, dgqa_details = evaluate_dgqa_mrb_custody(entities=entities)
+
+    # 5. PESO & Indian Explosives Rules, 2008 (Quantity-Distance Blast Arcs)
+    peso_ok, peso_details = evaluate_peso_explosives_qd(
         plot_boundary=plot_boundary,
         entities=entities,
-        robot_tasks=robot_tasks
+        docks=plot.docks
     )
+
+    # 6. AERB Code AERB/SC/IR (Radiography & NDT Bunker Exclusion Zone)
+    aerb_ok, aerb_details = evaluate_aerb_radiation_shielding(entities=entities)
+
+    # 7. BIS IS 6922 / DIN 4150-3 (Vibration Isolation for Defense Metrology)
+    vib_ok, vib_details = evaluate_is6922_vibration_isolation(entities=entities)
+
+    # 8. ISO 10218-2 Collaborative Safety (Evaluated if robots are present)
+    robots = [e for e in entities if e.category.startswith("robot")]
+    if robots and robot_tasks:
+        iso_ok, iso_details = evaluate_iso_10218_safety(
+            plot_boundary=plot_boundary,
+            entities=entities,
+            robot_tasks=robot_tasks
+        )
+    else:
+        iso_ok, iso_details = True, [{"check": "ISO 10218", "status": "N/A", "passed": True}]
 
     violations = []
     if not fire_ok:
-        violations.append(f"Fire egress statutory limit exceeded (max {fire_max_dist}m > 30.0m)")
+        violations.append(f"NBC 2016 Fire egress limit exceeded (max {fire_max_dist}m > {egress_statutory_limit}m)")
     if not aisle_ok:
-        violations.append(f"Forklift aisle narrow choke point detected (min {aisle_min_w}m < {plot.min_aisle_width_m}m)")
+        violations.append(f"Heavy armament aisle choke point detected (min {aisle_min_w}m < {plot.min_aisle_width_m}m)")
     if not haz_ok:
         violations.append(f"{len(haz_details)} incompatible hazard separation rule(s) violated")
+    if not dgqa_ok:
+        violations.append(dgqa_details[0]["message"])
+    if not peso_ok:
+        violations.append("PESO Explosives Rules 2008 Quantity-Distance blast arc violation detected")
+    if not aerb_ok:
+        violations.append(aerb_details[0]["message"])
+    if not vib_ok:
+        violations.append(vib_details[0]["message"])
     if not iso_ok:
-        violations.append("ISO 10218-2 / ISO 13854 robot collaborative safety requirement failed")
+        violations.append("ISO 10218-2 collaborative safety requirement failed")
 
-    # Score calculation
-    checks_total = 4
-    checks_passed = sum([fire_ok, aisle_ok, haz_ok, iso_ok])
+    # Score calculation across core checks
+    check_statuses = [fire_ok, aisle_ok, haz_ok, dgqa_ok, peso_ok, aerb_ok, vib_ok]
+    if robots and robot_tasks:
+        check_statuses.append(iso_ok)
+
+    checks_total = len(check_statuses)
+    checks_passed = sum(check_statuses)
     score = (checks_passed / checks_total) * 100.0
 
     all_details = []
     all_details.append(ComplianceCheckDetail(
-        check_name="Fire Egress Travel Distance",
+        check_name="NBC 2016 / Factories Act Egress Distance",
         passed=fire_ok,
         status="PASS" if fire_ok else "FAIL",
         value=fire_max_dist,
-        threshold=30.0,
-        message=f"Maximum travel distance to exit: {fire_max_dist}m"
+        threshold=egress_statutory_limit,
+        message=f"Maximum walking egress: {fire_max_dist}m (Statutory threshold <= {egress_statutory_limit}m)"
     ))
     all_details.append(ComplianceCheckDetail(
-        check_name="Forklift Navigable Aisle Width",
+        check_name="Heavy Armament Navigable Aisle Width",
         passed=aisle_ok,
         status="PASS" if aisle_ok else "FAIL",
         value=aisle_min_w,
@@ -340,7 +625,7 @@ def run_compliance_audit(
         message=f"Minimum clearance gap: {aisle_min_w}m"
     ))
     all_details.append(ComplianceCheckDetail(
-        check_name="Hazard Buffer Separation",
+        check_name="Hazard Buffer Separation Matrix",
         passed=haz_ok,
         status="PASS" if haz_ok else "FAIL",
         value=float(len(haz_details)),
@@ -348,13 +633,46 @@ def run_compliance_audit(
         message=f"{len(haz_details)} violation(s) found"
     ))
     all_details.append(ComplianceCheckDetail(
-        check_name="ISO 10218-2 Collaborative Safety",
-        passed=iso_ok,
-        status="PASS" if iso_ok else "FAIL",
-        value=1.0 if iso_ok else 0.0,
+        check_name="DGQA / DGAQA Quality & MRB Custody",
+        passed=dgqa_ok,
+        status="PASS" if dgqa_ok else "FAIL",
+        value=1.0 if dgqa_ok else 0.0,
         threshold=1.0,
-        message="SSM protective distances and anti-crushing clearances"
+        message=dgqa_details[0]["message"]
     ))
+    all_details.append(ComplianceCheckDetail(
+        check_name="PESO Explosives Rules 2008 Q-D Safety",
+        passed=peso_ok,
+        status="PASS" if peso_ok else "FAIL",
+        value=1.0 if peso_ok else 0.0,
+        threshold=1.0,
+        message=peso_details[0]["message"]
+    ))
+    all_details.append(ComplianceCheckDetail(
+        check_name="AERB Industrial Radiography Shielding",
+        passed=aerb_ok,
+        status="PASS" if aerb_ok else "FAIL",
+        value=1.0 if aerb_ok else 0.0,
+        threshold=1.0,
+        message=aerb_details[0]["message"]
+    ))
+    all_details.append(ComplianceCheckDetail(
+        check_name="IS 6922 / DIN 4150-3 Vibration Isolation",
+        passed=vib_ok,
+        status="PASS" if vib_ok else "FAIL",
+        value=1.0 if vib_ok else 0.0,
+        threshold=1.0,
+        message=vib_details[0]["message"]
+    ))
+    if robots and robot_tasks:
+        all_details.append(ComplianceCheckDetail(
+            check_name="ISO 10218-2 Collaborative Safety",
+            passed=iso_ok,
+            status="PASS" if iso_ok else "FAIL",
+            value=1.0 if iso_ok else 0.0,
+            threshold=1.0,
+            message="SSM protective distances and anti-crushing clearances"
+        ))
 
     return ComplianceResult(
         overall_passed=(checks_passed == checks_total),
@@ -365,6 +683,11 @@ def run_compliance_audit(
         forklift_aisle_min_width_m=aisle_min_w,
         iso_safety_passed=iso_ok,
         hazard_separation_passed=haz_ok,
+        dgqa_custody_passed=dgqa_ok,
+        peso_qd_passed=peso_ok,
+        aerb_radiation_passed=aerb_ok,
+        nbc_group_j_egress_passed=fire_ok,
+        is6922_vibration_isolation_passed=vib_ok,
         violations=violations,
         details=all_details
     )

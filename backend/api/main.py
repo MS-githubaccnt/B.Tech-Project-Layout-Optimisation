@@ -35,7 +35,12 @@ from backend.core.geometry import (
 from backend.core.optimizer import run_nsga2_optimization, FacilityLayoutProblem
 from backend.core.compliance import run_compliance_audit
 from backend.core.simulation import run_cms_simulation, run_robotic_simulation
-from backend.plugins.cms.cell_formation import run_roc, run_bea, run_hybrid_ga
+from backend.plugins.cms.cell_formation import (
+    run_roc,
+    run_bea,
+    run_hybrid_ga,
+    extract_incidence_matrix_from_config
+)
 from backend.export.dxf_exporter import export_layout_to_dxf
 from backend.export.pdf_report import generate_executive_pdf_report
 from backend.core.import_parsers import (
@@ -199,6 +204,38 @@ def execute_cell_formation(req: CellFormationRequest):
             capital_budget_inr=req.capital_budget_inr
         )
     return res.to_dict()
+
+
+class CellFormationFromConfigRequest(BaseModel):
+    config: ProjectConfig
+    num_cells: int = 3
+    algorithm: str = "ROC"  # ROC, BEA, GA
+    allow_duplication: bool = False
+    capital_budget_inr: float = 0.0
+
+
+@app.post("/api/cell-formation/from-config")
+def execute_cell_formation_from_config(req: CellFormationFromConfigRequest):
+    """
+    Dynamically extracts Machine-Part incidence matrix from active shopfloor configuration
+    and computes optimal cell clustering, machine-cell assignments, and grouping efficacy (Gamma).
+    """
+    mat, machine_names, part_names, demands = extract_incidence_matrix_from_config(
+        req.config.entities, req.config.part_routings
+    )
+    if req.algorithm.upper() == "ROC":
+        res = run_roc(mat, machine_names, part_names, req.num_cells, demands)
+    elif req.algorithm.upper() == "BEA":
+        res = run_bea(mat, machine_names, part_names, req.num_cells, demands)
+    else:
+        res = run_hybrid_ga(
+            mat, machine_names, part_names, req.num_cells,
+            demands=demands, allow_duplication=req.allow_duplication,
+            capital_budget_inr=req.capital_budget_inr
+        )
+    result_dict = res.to_dict()
+    result_dict["original_matrix"] = mat.tolist()
+    return result_dict
 
 
 class EvaluateLayoutRequest(BaseModel):

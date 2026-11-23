@@ -45,6 +45,10 @@ export interface LayoutEntity {
   kinematics?: RobotKinematics;
   safety_mode?: string;
   approach_speed_m_s?: number;
+  net_explosive_weight_kg?: number;
+  is_mrb_bonded?: boolean;
+  is_aerb_radiological?: boolean;
+  vibration_class?: string;
   x: number;
   y: number;
   theta: number;
@@ -143,6 +147,11 @@ export interface ComplianceResult {
   forklift_aisle_min_width_m: number;
   iso_safety_passed: boolean;
   hazard_separation_passed: boolean;
+  dgqa_custody_passed?: boolean;
+  peso_qd_passed?: boolean;
+  aerb_radiation_passed?: boolean;
+  nbc_group_j_egress_passed?: boolean;
+  is6922_vibration_isolation_passed?: boolean;
   violations: string[];
   details: ComplianceCheckDetail[];
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ProjectConfig } from '../types';
-import { DEFAULT_CMS_CONFIG, DEFAULT_ROBOTIC_CONFIG } from '../defaultData';
+import { DEFAULT_CMS_CONFIG, DEFENSE_ORDNANCE_CONFIG, DEFAULT_ROBOTIC_CONFIG } from '../defaultData';
 import {
   X,
   FileCode,
@@ -39,17 +39,18 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   // CSV Tab State
   const [machinesCsv, setMachinesCsv] = useState<string>(
     "id,name,category,length,width,height,clear_front,clear_back,clear_left,clear_right,noise_db,x,y,theta,fixed\n" +
-    "VMC_01,Haas_VF2,vmc,2.57,2.24,2.57,1.20,0.90,0.60,0.60,78.0,6.0,5.0,0.0,false\n" +
-    "VMC_02,Haas_VF2,vmc,2.57,2.24,2.57,1.20,0.90,0.60,0.60,78.0,6.0,10.0,0.0,false\n" +
-    "CNC_01,Haas_ST20,cnc_turning,3.18,1.96,1.98,1.20,0.80,0.60,1.20,76.0,14.0,5.0,0.0,false\n" +
-    "Grinder_01,Grinder_Cyl,grinder,2.40,1.80,1.80,1.00,0.80,0.50,0.50,86.0,24.0,5.0,0.0,false\n" +
-    "CMM_01,Mitutoyo_CMM,cmm,2.00,1.80,2.20,1.20,0.80,0.80,0.80,62.0,20.0,18.0,0.0,false"
+    "VMC_5AXIS,DMG_Mori_DMU50,vmc_5axis,2.85,2.45,2.70,1.40,1.00,0.80,0.80,79.0,6.0,5.0,0.0,false\n" +
+    "CNC_TURN,Haas_ST20,cnc_turning,3.18,1.96,1.98,1.20,0.80,0.60,1.20,76.0,14.0,5.0,0.0,false\n" +
+    "GUN_DRILL,TBT_Gun_Drill,gun_drill,5.80,1.90,2.10,1.40,1.00,1.50,1.50,84.0,14.0,12.0,0.0,false\n" +
+    "NDT_CELL,Waygate_NDT_Bunker,inspection,3.80,3.20,2.80,1.50,0.80,0.80,0.80,52.0,15.0,20.0,0.0,false\n" +
+    "CMM_ZEISS,Zeiss_Prismo_Nav,cmm,2.40,2.00,2.60,1.20,0.80,0.80,0.80,56.0,6.0,20.0,0.0,false\n" +
+    "MRB_CAGE,MRB_Quarantine_Cage,storage,3.00,2.00,2.40,1.50,0.40,0.40,0.40,42.0,27.0,20.0,0.0,false"
   );
   const [routingsCsv, setRoutingsCsv] = useState<string>(
     "part_id,annual_demand,batch_size,sequence\n" +
-    "Gear_Shaft_A1,18000,50,CNC_01 -> VMC_01 -> Grinder_01 -> CMM_01\n" +
-    "Brake_Disc_B2,24000,80,CNC_01 -> Grinder_01\n" +
-    "Motor_Housing_C3,12000,40,VMC_02 -> CMM_01"
+    "Missile_Fin_Titanium,3600,30,CNC_TURN -> VMC_5AXIS -> NDT_CELL -> CMM_ZEISS\n" +
+    "Artillery_Breech_Maraging,2400,20,CNC_TURN -> GUN_DRILL -> VMC_5AXIS -> CMM_ZEISS\n" +
+    "Propulsion_Casing_Inconel,1800,15,CNC_TURN -> VMC_5AXIS -> NDT_CELL -> MRB_CAGE"
   );
   const [plotW, setPlotW] = useState<number>(35.0);
   const [plotL, setPlotL] = useState<number>(25.0);
@@ -588,7 +589,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           {/* Quick Presets */}
           <div>
             <div className="font-semibold text-white uppercase text-[10px] tracking-wider mb-2">
-              Standard Factory Benchmark Datasets
+              Defense Manufacturing Facility Benchmark Scenarios
             </div>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -597,22 +598,22 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                 className="p-2.5 bg-[#16181d] border border-[#2d3239] hover:border-orange-500 rounded text-left transition-colors"
               >
                 <div className="font-semibold text-white flex items-center space-x-1.5">
-                  <span className="font-mono text-[9px] bg-black/40 px-1 py-0.2 rounded text-orange-200">A</span>
-                  <span>Tier-2 Automotive SME (CMS)</span>
+                  <span className="font-mono text-[9px] bg-black/40 px-1 py-0.2 rounded text-orange-200">1</span>
+                  <span>Missile &amp; Aero-structure Machining</span>
                 </div>
-                <div className="text-[10px] text-slate-400 mt-0.5">18 machines, 35×25m L-shaped hall, 3 cells</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">DMG Mori 5-axis, Haas CNC, Zeiss CMM, AS9100D quarantine</div>
               </button>
 
               <button
                 type="button"
-                onClick={() => { onImportConfig(DEFAULT_ROBOTIC_CONFIG); onClose(); }}
+                onClick={() => { onImportConfig(DEFENSE_ORDNANCE_CONFIG); onClose(); }}
                 className="p-2.5 bg-[#16181d] border border-[#2d3239] hover:border-orange-500 rounded text-left transition-colors"
               >
                 <div className="font-semibold text-white flex items-center space-x-1.5">
-                  <span className="font-mono text-[9px] bg-black/40 px-1 py-0.2 rounded text-orange-200">B</span>
-                  <span>EV Battery Collaborative Cell</span>
+                  <span className="font-mono text-[9px] bg-black/40 px-1 py-0.2 rounded text-orange-200">2</span>
+                  <span>Artillery Shell &amp; Armament Forging</span>
                 </div>
-                <div className="text-[10px] text-slate-400 mt-0.5">3 robots, 2 human stations, ISO 10218 SSM</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">2500T drop hammer, TBT gun drill, vacuum heat treat, NDT CT bunker</div>
               </button>
             </div>
           </div>

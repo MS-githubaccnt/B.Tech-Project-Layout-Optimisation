@@ -247,9 +247,7 @@ export const TaskEditorModal: React.FC<TaskEditorModalProps> = ({
           <div className="flex items-center space-x-2">
             <GitBranch className="w-4 h-4 text-orange-400" />
             <h3 className="text-sm font-semibold tracking-wide uppercase text-white">
-              {config.project_mode === 'CELLULAR_CMS'
-                ? 'Manufacturing Part Routings & Operational Sequences'
-                : 'Cyclic Robot Tasks & Collaborative Sequences'}
+              Defense Component Production Routings & Operational Sequences
             </h3>
           </div>
           <button onClick={onClose} className="p-1 text-slate-400 hover:text-white rounded hover:bg-[#282c34]">

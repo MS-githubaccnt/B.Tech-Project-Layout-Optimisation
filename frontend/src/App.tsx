@@ -56,7 +56,7 @@ export const App: React.FC = () => {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
 
   // Active drawer tab
-  const [activeTab, setActiveTab] = useState<'pareto' | 'compliance' | 'simulation' | 'matrix' | 'robotics' | 'roi'>('pareto');
+  const [activeTab, setActiveTab] = useState<'pareto' | 'compliance' | 'simulation' | 'matrix' | 'roi'>('pareto');
   const [view3D, setView3D] = useState<boolean>(false);
 
   // Modal open states
@@ -72,6 +72,76 @@ export const App: React.FC = () => {
   const [showFlows, setShowFlows] = useState<boolean>(true);
   const [showUtilities, setShowUtilities] = useState<boolean>(false);
   const [showNoiseHeatmap, setShowNoiseHeatmap] = useState<boolean>(false);
+  const [showCells, setShowCells] = useState<boolean>(true);
+
+  // Helper to spatially organize machines into their cellular bay sectors
+  const autoClusterEntities = (entsToCluster: LayoutEntity[]) => {
+    const xs = config.plot.boundary.map(p => p[0]);
+    const ys = config.plot.boundary.map(p => p[1]);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const w = maxX - minX;
+    const h = maxY - minY;
+
+    const cellSet = Array.from(new Set(entsToCluster.map(e => e.cell_id).filter((c): c is number => c !== undefined && c > 0))).sort((a, b) => a - b);
+    const k = cellSet.length;
+    if (k === 0) return entsToCluster;
+
+    const sectorCenters: Record<number, [number, number]> = {};
+    if (k === 1) {
+      sectorCenters[cellSet[0]] = [minX + w * 0.5, minY + h * 0.5];
+    } else if (k === 2) {
+      sectorCenters[cellSet[0]] = [minX + w * 0.28, minY + h * 0.50];
+      sectorCenters[cellSet[1]] = [minX + w * 0.72, minY + h * 0.50];
+    } else if (k === 3) {
+      sectorCenters[cellSet[0]] = [minX + w * 0.22, minY + h * 0.35];
+      sectorCenters[cellSet[1]] = [minX + w * 0.75, minY + h * 0.35];
+      sectorCenters[cellSet[2]] = [minX + w * 0.35, minY + h * 0.80];
+    } else {
+      cellSet.forEach((cId, idx) => {
+        const ang = (2 * Math.PI * idx) / k;
+        sectorCenters[cId] = [minX + w * 0.5 + w * 0.3 * Math.cos(ang), minY + h * 0.5 + h * 0.3 * Math.sin(ang)];
+      });
+    }
+
+    return entsToCluster.map(e => {
+      if (e.is_pinned || !e.cell_id) return e;
+      const center = sectorCenters[e.cell_id] || [minX + w * 0.5, minY + h * 0.5];
+      const cellMems = entsToCluster.filter(ent => ent.cell_id === e.cell_id);
+      const mIdx = cellMems.findIndex(ent => ent.id === e.id);
+
+      const col = mIdx % 2;
+      const row = Math.floor(mIdx / 2);
+      const spacingX = Math.max(4.2, e.dimensions.L + 1.8);
+      const spacingY = Math.max(4.0, e.dimensions.W + 1.8);
+
+      const targetX = Math.max(minX + 3.0, Math.min(maxX - 3.0, center[0] + (col - 0.5) * spacingX));
+      const targetY = Math.max(minY + 3.0, Math.min(maxY - 3.0, center[1] + (row - 0.5) * spacingY));
+
+      return {
+        ...e,
+        x: Math.round(targetX * 10) / 10,
+        y: Math.round(targetY * 10) / 10,
+        theta: 0.0
+      };
+    });
+  };
+
+  // Apply cell partition from MPCF tab to layout
+  const handleApplyCellAssignment = (machineCellMap: Record<string, number>) => {
+    let updated = entities.map(e => {
+      if (e.id in machineCellMap) {
+        return { ...e, cell_id: (machineCellMap[e.id] as number) + 1 };
+      }
+      return e;
+    });
+    updated = autoClusterEntities(updated);
+    setEntities(updated);
+    setConfig(prev => ({ ...prev, entities: updated }));
+    evaluateLive(updated, config);
+  };
 
   // Switch between Mode A and Mode B
   const handleSwitchMode = (mode: ProjectMode) => {
@@ -82,7 +152,7 @@ export const App: React.FC = () => {
     setSelectedEntityId(null);
     setParetoFront([]);
     setSelectedCandidateId(null);
-    setActiveTab(mode === 'CELLULAR_CMS' ? 'pareto' : 'robotics');
+    setActiveTab('pareto');
   };
 
   // Sub-50ms live evaluation on entity move or drag
@@ -318,42 +388,19 @@ export const App: React.FC = () => {
       {/* Top Professional Industrial CAD Header */}
       <header className="h-12 bg-[#1c1f24] border-b border-[#2d3239] px-4 flex items-center justify-between shrink-0 z-20 text-xs">
         {/* Brand & Department */}
-        
-         
-
-        {/* Center: Mode Selector */}
-        <div className="flex items-center space-x-1 bg-[#16181d] p-1 rounded border border-[#2d3239]">
-          <button
-            onClick={() => handleSwitchMode('CELLULAR_CMS')}
-            className={`flex items-center space-x-1.5 px-3 py-1 rounded text-xs font-semibold transition-colors ${
-              projectMode === 'CELLULAR_CMS'
-                ? 'bg-orange-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <span className="font-mono text-[10px] bg-black/40 px-1 py-0.2 rounded text-orange-200">A</span>
-            <span>Cellular CMS</span>
-          </button>
-
-          <button
-            onClick={() => handleSwitchMode('ROBOTIC_WORKCELL')}
-            className={`flex items-center space-x-1.5 px-3 py-1 rounded text-xs font-semibold transition-colors ${
-              projectMode === 'ROBOTIC_WORKCELL'
-                ? 'bg-orange-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <span className="font-mono text-[10px] bg-black/40 px-1 py-0.2 rounded text-orange-200">B</span>
-            <span>Robotic & EV Battery</span>
-          </button>
+        <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
+          </div>
         </div>
 
+        {/* Center: Defense Sector Operational Indicator */}
+        
         {/* Right Action Tools: Add Machine, Settings, Optimize, Export */}
         <div className="flex items-center space-x-1.5">
           <button
             onClick={() => setIsAddAssetOpen(true)}
             className="flex items-center space-x-1 px-2.5 py-1 bg-[#282c34] hover:bg-[#323842] border border-[#3e444e] rounded text-white font-medium transition-colors"
-            title="Browse equipment catalog or create custom machine"
+            title="Browse defense equipment catalog or create custom machine"
           >
             <Boxes className="w-3.5 h-3.5 text-orange-400" />
             <span>Equipment Catalog</span>
@@ -371,10 +418,10 @@ export const App: React.FC = () => {
           <button
             onClick={() => setIsTaskEditorOpen(true)}
             className="flex items-center space-x-1 px-2.5 py-1 bg-[#282c34] hover:bg-[#323842] border border-[#3e444e] rounded text-slate-200 font-medium transition-colors"
-            title="Configure Part Routings or Robot Cyclic Tasks"
+            title="Configure Defense Component Production Routings & Operations"
           >
             <GitBranch className="w-3.5 h-3.5 text-blue-400" />
-            <span>{projectMode === 'CELLULAR_CMS' ? 'Routings' : 'Robot Tasks'}</span>
+            <span>Defense Routings</span>
           </button>
 
           <button
@@ -429,36 +476,22 @@ export const App: React.FC = () => {
               <label className="flex items-center space-x-1 cursor-pointer hover:text-white">
                 <input
                   type="checkbox"
+                  checked={showCells}
+                  onChange={e => setShowCells(e.target.checked)}
+                  className="rounded border-[#3e444e] bg-[#282c34] text-orange-600 focus:ring-0"
+                />
+                <span className="text-emerald-400 font-semibold">Manufacturing Cells</span>
+              </label>
+
+              <label className="flex items-center space-x-1 cursor-pointer hover:text-white">
+                <input
+                  type="checkbox"
                   checked={showClearances}
                   onChange={e => setShowClearances(e.target.checked)}
                   className="rounded border-[#3e444e] bg-[#282c34] text-orange-600 focus:ring-0"
                 />
                 <span>Clearances</span>
               </label>
-
-              {projectMode === 'ROBOTIC_WORKCELL' && (
-                <>
-                  <label className="flex items-center space-x-1 cursor-pointer hover:text-white">
-                    <input
-                      type="checkbox"
-                      checked={showReachZones}
-                      onChange={e => setShowReachZones(e.target.checked)}
-                      className="rounded border-[#3e444e] bg-[#282c34] text-orange-600 focus:ring-0"
-                    />
-                    <span>Reach Annuli & Sweet-Spots</span>
-                  </label>
-
-                  <label className="flex items-center space-x-1 cursor-pointer hover:text-white">
-                    <input
-                      type="checkbox"
-                      checked={showSafetySSM}
-                      onChange={e => setShowSafetySSM(e.target.checked)}
-                      className="rounded border-[#3e444e] bg-[#282c34] text-orange-600 focus:ring-0"
-                    />
-                    <span>ISO 10218 SSM Zones</span>
-                  </label>
-                </>
-              )}
 
               <label className="flex items-center space-x-1 cursor-pointer hover:text-white">
                 <input
@@ -467,37 +500,22 @@ export const App: React.FC = () => {
                   onChange={e => setShowFlows(e.target.checked)}
                   className="rounded border-[#3e444e] bg-[#282c34] text-orange-600 focus:ring-0"
                 />
-                <span>{projectMode === 'CELLULAR_CMS' ? 'Flow Spaghetti Lines' : 'Robot Task Trajectories'}</span>
-              </label>
-
-              <label className="flex items-center space-x-1 cursor-pointer hover:text-white">
-                <input
-                  type="checkbox"
-                  checked={showUtilities}
-                  onChange={e => setShowUtilities(e.target.checked)}
-                  className="rounded border-[#3e444e] bg-[#282c34] text-orange-600 focus:ring-0"
-                />
-                <span>Steiner Utilities</span>
-              </label>
-
-              <label className="flex items-center space-x-1 cursor-pointer hover:text-white">
-                <input
-                  type="checkbox"
-                  checked={showNoiseHeatmap}
-                  onChange={e => setShowNoiseHeatmap(e.target.checked)}
-                  className="rounded border-[#3e444e] bg-[#282c34] text-orange-600 focus:ring-0"
-                />
-                <span>2D Noise dB Heatmap</span>
+                <span>Flow Spaghetti Lines</span>
               </label>
             </div>
 
-            {/* 2D vs 2.5D View Mode */}
             <button
-              onClick={() => setView3D(!view3D)}
-              className="flex items-center space-x-1 px-2 py-0.5 rounded border border-[#3e444e] bg-[#282c34] hover:bg-[#323842] text-slate-300 font-mono text-[10px]"
+              onClick={() => {
+                const clustered = autoClusterEntities(entities);
+                setEntities(clustered);
+                setConfig(prev => ({ ...prev, entities: clustered }));
+                evaluateLive(clustered, config);
+              }}
+              className="px-2.5 py-1 bg-[#282c34] hover:bg-[#323842] border border-[#3e444e] rounded text-[11px] text-emerald-400 font-mono flex items-center space-x-1.5 transition-colors"
+              title="Spatially group and snap machines into dedicated non-overlapping cell workcell bays"
             >
-              <Box className="w-3 h-3 text-orange-400" />
-              <span>{view3D ? '2D CAD Floorplan' : '2.5D Extruded View'}</span>
+              <Grid className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Group Cells Spatially</span>
             </button>
           </div>
 
@@ -520,6 +538,7 @@ export const App: React.FC = () => {
                 showFlows={showFlows}
                 showUtilities={showUtilities}
                 showNoiseHeatmap={showNoiseHeatmap}
+                showCells={showCells}
               />
             )}
           </div>
@@ -604,25 +623,14 @@ export const App: React.FC = () => {
             >
               SimPy
             </button>
-            {projectMode === 'CELLULAR_CMS' ? (
-              <button
-                onClick={() => setActiveTab('matrix')}
-                className={`flex-1 py-2 font-medium border-b-2 transition-colors ${
-                  activeTab === 'matrix' ? 'border-orange-500 text-white bg-[#1c1f24]' : 'border-transparent text-slate-400 hover:text-white'
-                }`}
-              >
-                MPCF
-              </button>
-            ) : (
-              <button
-                onClick={() => setActiveTab('robotics')}
-                className={`flex-1 py-2 font-medium border-b-2 transition-colors ${
-                  activeTab === 'robotics' ? 'border-orange-500 text-white bg-[#1c1f24]' : 'border-transparent text-slate-400 hover:text-white'
-                }`}
-              >
-                Robotics
-              </button>
-            )}
+            <button
+              onClick={() => setActiveTab('matrix')}
+              className={`flex-1 py-2 font-medium border-b-2 transition-colors ${
+                activeTab === 'matrix' ? 'border-orange-500 text-white bg-[#1c1f24]' : 'border-transparent text-slate-400 hover:text-white'
+              }`}
+            >
+              MPCF
+            </button>
             <button
               onClick={() => setActiveTab('roi')}
               className={`flex-1 py-2 font-medium border-b-2 transition-colors ${
@@ -657,12 +665,12 @@ export const App: React.FC = () => {
               />
             )}
 
-            {activeTab === 'matrix' && projectMode === 'CELLULAR_CMS' && (
-              <CellFormationMatrix />
-            )}
-
-            {activeTab === 'robotics' && projectMode === 'ROBOTIC_WORKCELL' && (
-              <RoboticsPanel config={config} entities={entities} />
+            {activeTab === 'matrix' && (
+              <CellFormationMatrix
+                config={config}
+                entities={entities}
+                onApplyCellAssignment={handleApplyCellAssignment}
+              />
             )}
 
             {activeTab === 'roi' && (
