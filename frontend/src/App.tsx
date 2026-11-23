@@ -615,30 +615,7 @@ export const App: React.FC = () => {
             >
               Audit
             </button>
-            <button
-              onClick={() => setActiveTab('simulation')}
-              className={`flex-1 py-2 font-medium border-b-2 transition-colors ${
-                activeTab === 'simulation' ? 'border-orange-500 text-white bg-[#1c1f24]' : 'border-transparent text-slate-400 hover:text-white'
-              }`}
-            >
-              SimPy
-            </button>
-            <button
-              onClick={() => setActiveTab('matrix')}
-              className={`flex-1 py-2 font-medium border-b-2 transition-colors ${
-                activeTab === 'matrix' ? 'border-orange-500 text-white bg-[#1c1f24]' : 'border-transparent text-slate-400 hover:text-white'
-              }`}
-            >
-              MPCF
-            </button>
-            <button
-              onClick={() => setActiveTab('roi')}
-              className={`flex-1 py-2 font-medium border-b-2 transition-colors ${
-                activeTab === 'roi' ? 'border-orange-500 text-white bg-[#1c1f24]' : 'border-transparent text-slate-400 hover:text-white'
-              }`}
-            >
-              ROI
-            </button>
+            
           </div>
 
           {/* Drawer Tab Content */}

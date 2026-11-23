@@ -183,7 +183,7 @@ class FacilityLayoutProblem(Problem):
         super().__init__(
             n_var=n_var,
             n_obj=2,
-            n_ieq_constr=2,  # overlap <= 0, boundary_violation <= 0
+            n_ieq_constr=3,  # overlap <= 0, boundary_violation <= 0, cell_overlap <= 0
             xl=np.array(xl),
             xu=np.array(xu)
         )
@@ -214,7 +214,7 @@ class FacilityLayoutProblem(Problem):
     def _evaluate(self, X: np.ndarray, out: Dict[str, Any], *args, **kwargs):
         pop_size = X.shape[0]
         F = np.zeros((pop_size, 2))
-        G = np.zeros((pop_size, 2))
+        G = np.zeros((pop_size, 3))
 
         for idx in range(pop_size):
             chrom = X[idx]
@@ -233,12 +233,41 @@ class FacilityLayoutProblem(Problem):
             )
             total_bound_violation = outside_area + ng_area
 
+            # Cell Bounding Box Overlap Calculation
+            cell_box_overlap = 0.0
+            if self.config.project_mode == ProjectMode.CELLULAR_CMS:
+                cells_map: Dict[int, List[LayoutEntity]] = {}
+                for e in entities:
+                    if e.cell_id is not None:
+                        cells_map.setdefault(e.cell_id, []).append(e)
+
+                if len(cells_map) > 1:
+                    c_boxes = {}
+                    for c_id, c_ents in cells_map.items():
+                        c_boxes[c_id] = (
+                            min(e.x - (e.dimensions.L / 2.0 + (e.clearances.left if e.clearances else 0.5)) for e in c_ents),
+                            min(e.y - (e.dimensions.W / 2.0 + (e.clearances.back if e.clearances else 0.5)) for e in c_ents),
+                            max(e.x + (e.dimensions.L / 2.0 + (e.clearances.right if e.clearances else 0.5)) for e in c_ents),
+                            max(e.y + (e.dimensions.W / 2.0 + (e.clearances.front if e.clearances else 0.5)) for e in c_ents)
+                        )
+                    c_keys = list(c_boxes.keys())
+                    for ic1 in range(len(c_keys)):
+                        for ic2 in range(ic1 + 1, len(c_keys)):
+                            b1 = c_boxes[c_keys[ic1]]
+                            b2 = c_boxes[c_keys[ic2]]
+                            # Require at least 0.5m clean aisle separation between cell boundaries
+                            dx = min(b1[2], b2[2]) - max(b1[0], b2[0]) + 0.5
+                            dy = min(b1[3], b2[3]) - max(b1[1], b2[1]) + 0.5
+                            if dx > 0 and dy > 0:
+                                cell_box_overlap += dx * dy
+
             # Constraints for pymoo (<= 0 is feasible)
             G[idx, 0] = overlap_area - 0.05
             G[idx, 1] = total_bound_violation - 0.05
+            G[idx, 2] = cell_box_overlap - 0.05
 
-            # Dynamic penalty multiplier lambda(g) = lambda_0 * (1 + g / G_max)^2
-            penalty = (overlap_area * 50.0 + total_bound_violation * 60.0)
+            # Penalty shared across both objectives
+            penalty = (overlap_area * 50.0 + total_bound_violation * 60.0 + cell_box_overlap * 150.0)
 
             if self.config.project_mode == ProjectMode.CELLULAR_CMS:
                 z1, z2 = self._eval_cms(entities)
@@ -543,10 +572,36 @@ def run_nsga2_optimization(
             if request.enable_local_repair:
                 ents = force_directed_repair(ents, problem.plot_poly, problem.no_go_polys, iterations=5)
 
-            # Evaluate exact compliance and collisions
+            # Evaluate exact compliance, collisions, and cell boundary exclusivity
             overlap, _ = compute_layout_overlaps(ents, use_clearances=True)
             out_area, ng_area = compute_boundary_violations(problem.plot_poly, problem.no_go_polys, ents)
-            is_feasible = (overlap < 0.1 and (out_area + ng_area) < 0.1)
+            
+            c_overlap = 0.0
+            if config.project_mode == ProjectMode.CELLULAR_CMS:
+                c_map: Dict[int, List[LayoutEntity]] = {}
+                for e in ents:
+                    if e.cell_id is not None:
+                        c_map.setdefault(e.cell_id, []).append(e)
+                if len(c_map) > 1:
+                    c_bxs = {
+                        c_id: (
+                            min(e.x - (e.dimensions.L / 2.0 + (e.clearances.left if e.clearances else 0.5)) for e in ce),
+                            min(e.y - (e.dimensions.W / 2.0 + (e.clearances.back if e.clearances else 0.5)) for e in ce),
+                            max(e.x + (e.dimensions.L / 2.0 + (e.clearances.right if e.clearances else 0.5)) for e in ce),
+                            max(e.y + (e.dimensions.W / 2.0 + (e.clearances.front if e.clearances else 0.5)) for e in ce)
+                        )
+                        for c_id, ce in c_map.items()
+                    }
+                    c_k = list(c_bxs.keys())
+                    for ic1 in range(len(c_k)):
+                        for ic2 in range(ic1 + 1, len(c_k)):
+                            b1, b2 = c_bxs[c_k[ic1]], c_bxs[c_k[ic2]]
+                            dx = min(b1[2], b2[2]) - max(b1[0], b2[0])
+                            dy = min(b1[3], b2[3]) - max(b1[1], b2[1])
+                            if dx > 0 and dy > 0:
+                                c_overlap += dx * dy
+
+            is_feasible = (overlap < 0.1 and (out_area + ng_area) < 0.1 and c_overlap < 0.1)
 
             # Brownfield relocation cost
             reloc_cost = sum(

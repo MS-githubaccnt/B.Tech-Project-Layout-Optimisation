@@ -437,11 +437,11 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
       });
 
       const cellPalette = [
-        { stroke: '#10b981', fill: 'rgba(16, 185, 129, 0.08)', border: 'rgba(16, 185, 129, 0.40)', badgeBg: '#064e3b', text: '#6ee7b7', tag: 'CELL 1 [MACHINING & TURNING]' },
-        { stroke: '#0ea5e9', fill: 'rgba(14, 165, 233, 0.08)', border: 'rgba(14, 165, 233, 0.40)', badgeBg: '#0c4a6e', text: '#7dd3fc', tag: 'CELL 2 [FORGING & FINISHING]' },
-        { stroke: '#f59e0b', fill: 'rgba(245, 158, 11, 0.08)', border: 'rgba(245, 158, 11, 0.40)', badgeBg: '#78350f', text: '#fcd34d', tag: 'CELL 3 [NDT & METROLOGY]' },
-        { stroke: '#a855f7', fill: 'rgba(168, 85, 247, 0.08)', border: 'rgba(168, 85, 247, 0.40)', badgeBg: '#581c87', text: '#d8b4fe', tag: 'CELL 4 [SUB-ASSEMBLY]' },
-        { stroke: '#f43f5e', fill: 'rgba(244, 63, 94, 0.08)', border: 'rgba(244, 63, 94, 0.40)', badgeBg: '#881337', text: '#fda4af', tag: 'CELL 5 [PACKAGING]' },
+        { stroke: '#10b981', fill: 'rgba(16, 185, 129, 0.08)', border: 'rgba(16, 185, 129, 0.40)', badgeBg: '#064e3b', text: '#6ee7b7' },
+        { stroke: '#0ea5e9', fill: 'rgba(14, 165, 233, 0.08)', border: 'rgba(14, 165, 233, 0.40)', badgeBg: '#0c4a6e', text: '#7dd3fc' },
+        { stroke: '#f59e0b', fill: 'rgba(245, 158, 11, 0.08)', border: 'rgba(245, 158, 11, 0.40)', badgeBg: '#78350f', text: '#fcd34d' },
+        { stroke: '#a855f7', fill: 'rgba(168, 85, 247, 0.08)', border: 'rgba(168, 85, 247, 0.40)', badgeBg: '#581c87', text: '#d8b4fe' },
+        { stroke: '#f43f5e', fill: 'rgba(244, 63, 94, 0.08)', border: 'rgba(244, 63, 94, 0.40)', badgeBg: '#881337', text: '#fda4af' },
       ];
 
       cellsMap.forEach((cEnts, cId) => {
@@ -460,7 +460,7 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
           maxY = Math.max(maxY, e.y + halfF);
         });
 
-        const padM = 0.8;
+        const padM = 0.25;
         minX -= padM;
         maxX += padM;
         minY -= padM;
@@ -521,8 +521,8 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
         ctx.lineTo(pTL.x, pTL.y + boxH - bLen);
         ctx.stroke();
 
-        // Cellular Banner Badge
-        const bannerText = theme.tag.replace(/CELL \d+/, `CELL ${cId}`) + ` • ${cEnts.length} UNITS`;
+        // Cellular Banner Badge (Standard CAD designation)
+        const bannerText = `CELL ${cId} • ${cEnts.length} UNITS`;
         ctx.font = 'bold 9px JetBrains Mono, monospace';
         const txtMetrics = ctx.measureText(bannerText);
         const bW = txtMetrics.width + 16;

@@ -37,18 +37,7 @@ export const ComplianceScorecard: React.FC<ComplianceScorecardProps> = ({ compli
             Indian Defense Statutory Compliance Audit
           </span>
         </div>
-        <div className="font-mono">
-          <span className="text-slate-400 mr-1.5">Audit Score:</span>
-          <span
-            className={`font-bold px-2 py-0.5 rounded border ${
-              compliance.overall_passed
-                ? 'bg-emerald-950/40 border-emerald-700 text-emerald-400'
-                : 'bg-red-950/40 border-red-700 text-red-400'
-            }`}
-          >
-            {compliance.overall_score}%
-          </span>
-        </div>
+       
       </div>
 
       <div className="space-y-2">
